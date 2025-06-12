@@ -9,7 +9,7 @@ interface Message {
   fromUser: boolean;
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://languageasistantagent-production.up.railway.app/";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://languageasistantagent-production.up.railway.app";
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
