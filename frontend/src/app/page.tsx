@@ -33,7 +33,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/chat`, {
+      const res = await fetch('https://languageasistantagent-production.up.railway.app/chat', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
