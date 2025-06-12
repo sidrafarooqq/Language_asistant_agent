@@ -69,7 +69,7 @@ app = FastAPI(title="Sidra Agent API", version="1.0.0")
 # If your frontend and backend are on different origins, enable CORS:
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: narrow in production
+    allow_origins=["https://language-asistant-agent-tp3d.vercel.app"],  # TODO: narrow in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
