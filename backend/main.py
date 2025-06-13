@@ -88,7 +88,7 @@ async def _run_agent(history: List[Dict[str, str]]) -> str:
 
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health Check"])
 async def health():
     return {"status": "ok"}
 
