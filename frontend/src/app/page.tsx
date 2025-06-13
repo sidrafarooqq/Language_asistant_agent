@@ -3,28 +3,24 @@ import { useState, useRef, useEffect } from "react";
 import { Send } from "lucide-react";
 import { motion } from "framer-motion";
 
-// Message interface
 interface Message {
   id: number;
   text: string;
   fromUser: boolean;
 }
 
-// Main Component
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Convert messages to history format for backend
   const toHistory = (msgs: Message[]) =>
     msgs.map(({ fromUser, text }) => ({
       role: fromUser ? "user" : "assistant",
       content: text,
     }));
 
-  // Handle sending message
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
@@ -36,20 +32,21 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch("https://languageasistantagent-production.up.railway.app", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          history: toHistory(updatedMessages),
-          user_input: input,
-        }),
-      });
+      const res = await fetch(
+        "https://languageasistantagent-production.up.railway.app/chat",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            history: toHistory(updatedMessages),
+            user_input: input,
+          }),
+        }
+      );
 
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-
-      // Adjust field name based on backend response
-      const assistantReply = data.assistant_reply || data.response || "No reply";
+      const assistantReply = data.assistant_reply || "No reply";
 
       const botMsg: Message = {
         id: Date.now() + 1,
@@ -63,7 +60,7 @@ export default function Home() {
         ...prev,
         {
           id: Date.now() + 2,
-          text: "🚨 Error: Failed to connect to server. Please check your internet or backend.",
+          text: "🚨 Error: Failed to connect to server. Please try again later.",
           fromUser: false,
         },
       ]);
@@ -72,7 +69,6 @@ export default function Home() {
     }
   };
 
-  // Auto scroll on new message
   useEffect(() => {
     containerRef.current?.scrollTo({
       top: containerRef.current.scrollHeight,
@@ -82,18 +78,13 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen bg-[url('/abstract-background-design-images-wallpaper-ai-generated_643360-262414.jpg')] bg-cover bg-center bg-no-repeat flex items-center justify-center px-4 py-8">
-      {/* Overlay */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-0" />
-
-      {/* Content */}
       <div className="relative z-10 flex flex-col items-center w-full space-y-6">
         <h1 className="text-4xl font-extrabold text-white drop-shadow-lg text-center tracking-wide">
           📚 Language Learning Assistant
         </h1>
 
-        {/* Chat Box */}
         <div className="w-full max-w-2xl h-[80vh] bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
-          {/* Messages */}
           <div
             ref={containerRef}
             className="flex-1 overflow-y-auto px-6 py-4 space-y-3 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent"
@@ -125,7 +116,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Input */}
           <form
             onSubmit={handleSend}
             className="flex items-center gap-2 p-4 border-t border-gray-200 bg-white/60"

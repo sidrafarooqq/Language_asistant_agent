@@ -13,10 +13,7 @@ from pydantic import BaseModel, Field
 from agents import Agent, Runner, RunConfig, AsyncOpenAI, OpenAIChatCompletionsModel
 from openai.types.responses import ResponseTextDeltaEvent
 
-# ---------------------------------------------------------------------------
-# Environment & model setup
-# ---------------------------------------------------------------------------
-
+# Load environment variables
 load_dotenv()
 
 gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
@@ -51,25 +48,19 @@ agent = Agent(
     model=model,
 )
 
-# ---------------------------------------------------------------------------
-# FastAPI App Setup
-# ---------------------------------------------------------------------------
-
+# Create FastAPI app
 app = FastAPI(title="Sidra Agent API", version="1.0.0")
 
-# ✅ CORS middleware fixed (for dev use "*", in prod use your actual URL)
+# ✅ Allow Vercel frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://language-asistant-agent.vercel.app"],  # 🔁 Change to specific domain for production
+    allow_origins=["https://language-asistant-agent.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
-# Schemas
-# ---------------------------------------------------------------------------
-
+# Request and response schemas
 class Message(BaseModel):
     role: str = Field(..., examples=["user", "assistant"])
     content: str
@@ -81,10 +72,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     assistant_reply: str
 
-# ---------------------------------------------------------------------------
 # Agent runner
-# ---------------------------------------------------------------------------
-
 async def _run_agent(history: List[Dict[str, str]]) -> str:
     result = Runner.run_streamed(agent, input=history, run_config=config)
     assistant_reply = ""
@@ -98,19 +86,16 @@ async def _run_agent(history: List[Dict[str, str]]) -> str:
 
     return assistant_reply
 
-# ---------------------------------------------------------------------------
 # Routes
-# ---------------------------------------------------------------------------
-
-@app.get("/", summary="Root Route")
+@app.get("/")
 async def root():
     return {"message": "✅ Sidra Agent is running!"}
 
-@app.get("/health", summary="Health Check")
+@app.get("/health")
 async def health():
     return {"status": "ok"}
 
-@app.post("/chat", response_model=ChatResponse, summary="Non-stream chat")
+@app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
     history = [m.dict() for m in req.history]
     history.append({"role": "user", "content": req.user_input})
@@ -122,7 +107,7 @@ async def chat_endpoint(req: ChatRequest):
 
     return {"assistant_reply": assistant_reply}
 
-@app.post("/chat/stream", response_class=StreamingResponse, summary="Streamed chat")
+@app.post("/chat/stream", response_class=StreamingResponse)
 async def chat_stream_endpoint(req: ChatRequest):
     history = [m.dict() for m in req.history]
     history.append({"role": "user", "content": req.user_input})
@@ -137,25 +122,3 @@ async def chat_stream_endpoint(req: ChatRequest):
                 yield event.data.delta
 
     return StreamingResponse(_token_generator(), media_type="text/plain")
-
-# ---------------------------------------------------------------------------
-# CLI Mode (optional)
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    async def _cli():
-        history = []
-        print("\nWelcome to Sidra's Agent (CLI Mode). Type 'exit' to quit.\n")
-        try:
-            while True:
-                user_input = input("You: ")
-                if user_input.lower() in {"exit", "quit"}:
-                    break
-                history.append({"role": "user", "content": user_input})
-                reply = await _run_agent(history)
-                print(f"Assistant: {reply}\n")
-                history.append({"role": "assistant", "content": reply})
-        except (KeyboardInterrupt, EOFError):
-            print("\nExiting…")
-
-    asyncio.run(_cli())
