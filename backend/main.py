@@ -1,5 +1,3 @@
-
-
 from __future__ import annotations
 
 import os
@@ -9,16 +7,10 @@ import asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from agents import (
-    Agent,
-    Runner,
-    RunConfig,
-    AsyncOpenAI,
-    OpenAIChatCompletionsModel,
-)
+from agents import Agent, Runner, RunConfig, AsyncOpenAI, OpenAIChatCompletionsModel
 from openai.types.responses import ResponseTextDeltaEvent
 
 # ---------------------------------------------------------------------------
@@ -48,33 +40,31 @@ config = RunConfig(
 )
 
 agent = Agent(
-    name="sidra's Agent",
+    name="Sidra's Agent",
     instructions=(
         "You are a helpful and knowledgeable language learning assistant. "
         "Your goal is to help users improve their language skills through clear explanations, "
         "practice exercises, vocabulary guidance, grammar rules, and answering language-related questions. "
-        "Always stay focused on language learning topics and provide responses in a supportive and easy-to-understand way. "
-        "You can assist with all types of languages and provide information about what a word means in english, "
-        "including translations and context-based meanings across various languages."
+        "You can assist with all types of languages and provide information about what a word means in English, "
+        "including translations and context-based meanings."
     ),
     model=model,
 )
 
 # ---------------------------------------------------------------------------
-# FastAPI app
+# FastAPI App Setup
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Sidra Agent API", version="1.0.0")
 
-# If your frontend and backend are on different origins, enable CORS:
+# ✅ CORS middleware fixed (for dev use "*", in prod use your actual URL)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://language-asistant-agent-tp3d.vercel.app"],  # TODO: narrow in production
+    allow_origins=["https://language-asistant-agent.vercel.app"],  # 🔁 Change to specific domain for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -85,22 +75,17 @@ class Message(BaseModel):
     content: str
 
 class ChatRequest(BaseModel):
-    history: List[Message] = Field(  # previous messages; can be empty
-        default_factory=list,
-        description="Existing conversation history as an array of role/content objects.",
-    )
-    user_input: str = Field(..., description="The user's latest prompt.")
+    history: List[Message] = Field(default_factory=list)
+    user_input: str
 
 class ChatResponse(BaseModel):
     assistant_reply: str
 
-
 # ---------------------------------------------------------------------------
-# Helper – run the agent asynchronously and capture full text
+# Agent runner
 # ---------------------------------------------------------------------------
 
 async def _run_agent(history: List[Dict[str, str]]) -> str:
-    """Runs the agent with streaming but buffers the full reply."""
     result = Runner.run_streamed(agent, input=history, run_config=config)
     assistant_reply = ""
 
@@ -113,34 +98,33 @@ async def _run_agent(history: List[Dict[str, str]]) -> str:
 
     return assistant_reply
 
-
 # ---------------------------------------------------------------------------
-# Non‑streaming endpoint
+# Routes
 # ---------------------------------------------------------------------------
 
-@app.post("/chat", response_model=ChatResponse, summary="Chat – JSON response")
+@app.get("/", summary="Root Route")
+async def root():
+    return {"message": "✅ Sidra Agent is running!"}
+
+@app.get("/health", summary="Health Check")
+async def health():
+    return {"status": "ok"}
+
+@app.post("/chat", response_model=ChatResponse, summary="Non-stream chat")
 async def chat_endpoint(req: ChatRequest):
-    """Returns the assistant's full reply as JSON."""
-    # Build history for the agent
-    history: List[Dict[str, str]] = [m.dict() for m in req.history]
+    history = [m.dict() for m in req.history]
     history.append({"role": "user", "content": req.user_input})
 
     try:
         assistant_reply = await _run_agent(history)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return {"assistant_reply": assistant_reply}
 
-
-# ---------------------------------------------------------------------------
-# Streaming endpoint (Server‑Sent Events / chunked text)
-# ---------------------------------------------------------------------------
-
-@app.post("/chat/stream", response_class=StreamingResponse, summary="Chat – stream reply")
+@app.post("/chat/stream", response_class=StreamingResponse, summary="Streamed chat")
 async def chat_stream_endpoint(req: ChatRequest):
-    """Streams the assistant's reply token‑by‑token (plain text chunks)."""
-    history: List[Dict[str, str]] = [m.dict() for m in req.history]
+    history = [m.dict() for m in req.history]
     history.append({"role": "user", "content": req.user_input})
 
     async def _token_generator() -> AsyncGenerator[str, None]:
@@ -150,33 +134,18 @@ async def chat_stream_endpoint(req: ChatRequest):
                 event.type == "raw_response_event"
                 and isinstance(event.data, ResponseTextDeltaEvent)
             ):
-                # Each token is sent as‑is; the frontend can concat.
                 yield event.data.delta
 
-    # `text/plain` so the browser treats it as a simple stream.
     return StreamingResponse(_token_generator(), media_type="text/plain")
 
-
 # ---------------------------------------------------------------------------
-# Health check (optional)
-# ---------------------------------------------------------------------------
-
-@app.get("/health", summary="Health check")
-async def health():
-    return {"status": "ok"}
-
-
-# ---------------------------------------------------------------------------
-# Optional: CLI (keep the original terminal chat behaviour)
+# CLI Mode (optional)
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Re‑use the same module as a script for quick testing.
-    import asyncio
-
     async def _cli():
         history = []
-        print("\nWelcome to Sidra's Agent (FastAPI CLI mode). Type 'exit' to quit.\n")
+        print("\nWelcome to Sidra's Agent (CLI Mode). Type 'exit' to quit.\n")
         try:
             while True:
                 user_input = input("You: ")
