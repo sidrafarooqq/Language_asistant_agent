@@ -86,10 +86,7 @@ async def _run_agent(history: List[Dict[str, str]]) -> str:
 
     return assistant_reply
 
-# Routes
-@app.get("/")
-async def root():
-    return {"message": "✅ Sidra Agent is running!"}
+
 
 @app.get("/health")
 async def health():
