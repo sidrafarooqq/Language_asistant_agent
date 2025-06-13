@@ -37,13 +37,15 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          history: toHistory([...messages, userMsg]),
+          history: toHistory([...messages, { id: Date.now(), text: input, fromUser: true }]),
+
           user_input: input,
         }),
       });
 
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+console.log("Backend response:", data);
 
       const botMsg: Message = {
         id: Date.now() + 1,
